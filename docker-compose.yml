@@ -1,0 +1,47 @@
+version: '3.8'
+services:
+  primary:
+    container_name: primary
+    image: postgres:13
+    restart: always # コンテナの終了コードに拘わらず、常にコンテナの再起動を試みます。
+    # [このイメージでは、 command で指定された内容を全て postgres デーモンに渡すよう作られている](https://hub.docker.com/_/postgres#:~:text=The%20entrypoint%20script%20is%20made%20so%20that%20any%20options%20passed%20to%20the%20docker%20command%20will%20be%20passed%20along%20to%20the%20postgres%20server%20daemon.)
+    command: -c 'config_file=/etc/postgresql/postgresql.conf' -c 'hba_file=/etc/postgresql/pg_hba.conf'
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=db
+    ports:
+      - 15432:5432
+    volumes:
+      - ./primary/data:/var/lib/postgresql/data
+      - ./primary/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./primary/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: pg_isready -d db
+      interval: 1s
+      timeout: 1s
+      retries: 5
+
+  replica:
+    container_name: replica
+    image: postgres:13
+    restart: always
+    command: -c 'config_file=/etc/postgresql/postgresql.conf' -c 'hba_file=/etc/postgresql/pg_hba.conf'
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=db
+    ports:
+      - 25432:5432
+    volumes:
+      - ./replica/data:/var/lib/postgresql/data
+      - ./replica/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./replica/pg_hba.conf:/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: pg_isready -d db
+      interval: 1s
+      timeout: 1s
+      retries: 5
+    depends_on:
+      primary:
+        condition: service_healthy
